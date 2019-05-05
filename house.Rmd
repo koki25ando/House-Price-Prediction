@@ -94,63 +94,164 @@ merged_dat %>%
 vars_int = c("BsmtFullBath", "BsmtHalfBath", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "GarageCars", "GarageArea")
 vars_factor = c("MSZoning", "Utilities", "Functional", "Exterior1st", "Exterior2nd", "Electrical", "KitchenQual", "SaleType")
 merged_dat = impute_mean_at(merged_dat, vars_int)
-merged_dat %>% 
-  impute_cart(MSZoning ~ .)
+merged_dat = merged_dat %>% 
+  impute_cart(MSZoning ~ .) %>% 
+  impute_cart(Utilities ~ .) %>% 
+  impute_cart(Functional ~ .) %>% 
+  impute_cart(Exterior1st ~ .) %>% 
+  impute_cart(Exterior2nd ~ .) %>% 
+  impute_cart(Electrical ~ .) %>% 
+  impute_cart(KitchenQual ~ .) %>% 
+  impute_cart(SaleType ~ .)
 ```
 
 # Check NAs
 
 ```{r}
-miss_var_summary(merged_dat) 
+miss_var_summary(merged_dat)
 ```
 
 
 
-## Top 3 missing values
+## Top 7 missing values
 
 ```{r}
-prop_miss(merged_dat$PoolQC)
-prop_miss(merged_dat$MiscFeature)
-prop_miss(merged_dat$Alley)
+miss_var_summary(merged_dat)
 ```
-
-It seems that vast majority of PoolQC, MiscFeature and Alley columns data is missing. In this case, I am not going to use these variables.
 
 ```{r}
-merged_dat = select(merged_dat, -PoolQC, -MiscFeature, -Alley)
+top_missing_vats = c("PoolQC", "MiscFeature", "Alley", "Fence", "FireplaceQu", "LotFrontage", "GarageYrBlt")
+merged_dat %>% 
+  select(top_missing_vats, SalePrice) %>% 
+  str()
+```
+
+
+## Deeper EDA
+
+### PoolQC
+
+```{r}
+merged_dat %>% 
+  ggplot(aes(SalePrice, PoolQC)) +
+  geom_boxplot()
+```
+
+```{r}
+merged_dat %>% 
+  bind_shadow() %>% 
+  ggplot(aes(SalePrice, colour = PoolQC_NA)) +
+  geom_density()
 ```
 
 
 
-!!!!!後ほど試すこと
-これらの数値はそもそも、欠損値であるか無いかが重要かもしれない。そこを後ほど試す！
+```{r}
+nums <- unlist(lapply(merged_dat, is.numeric))  
+res <- cor(merged_dat[, nums])
+round(res, 2) %>% tail(1)
+```
+
+```{r}
+merged_dat %>% 
+  bind_shadow() %>% 
+  ggplot(aes(TotalBsmtSF, SalePrice, colour = Alley_NA)) +
+  geom_point(alpha = .4)
+```
+
+
+
+
+```{r}
+merged_dat = select(merged_dat, -PoolQC, -MiscFeature, -Alley, -Fence)
+merged_dat = select(merged_dat, -Fence)
+```
+
+
+```{r}
+prop_miss(merge_dat)
+miss_var_summary(select(merged_dat, contains("Garage")))
+```
+
+
+## Garage
+
+```{r}
+merged_dat %>% 
+  select(contains("Garage"), SalePrice) %>% 
+  str()
+```
+
+
+```{r}
+merged_dat %>% 
+  select(contains("Garage"), SalePrice) %>% 
+  # bind_shadow() %>% 
+  add_label_missings() %>% 
+  ggplot(aes(GarageYrBlt, SalePrice), alpha = .4) +
+  geom_point() +
+  geom_miss_point()
+```
+
+
+```{r}
+merged_dat %>% 
+  ggplot(aes(GarageYrBlt, SalePrice)) +
+  geom_point() +
+  geom_miss_point()
+```
+
+### Linear Model imputation
+
+```{r}
+merged_dat = impute_lm(merged_dat, GarageYrBlt ~ SalePrice)
+```
+
+```{r}
+nums <- unlist(lapply(merged_dat, is.numeric))  
+res <- cor(merged_dat[, nums])
+round(res, 2)[26:27,]
+```
+
+
+```{r}
+merged_dat %>% 
+  select(contains("Garage"), SalePrice) %>% 
+  ggplot(aes(GarageYrBlt, SalePrice)) +
+  geom_point() +
+  geom_miss_point()
+```
+
+
+### Garage Type/Qual/Cond/Finish
+
+```{r}
+merged_dat %>% 
+  ggplot(aes(GarageFinish)) +
+  geom_bar(stat = "count")
+# merged_dat %>% 
+#   ggplot(aes(GarageQual, SalePrice, colour = GarageQual)) +
+#   geom_boxplot()
+# 
+# merged_dat %>% 
+#   ggplot(aes(SalePrice, colour = GarageQual)) +
+#   geom_density()
+```
+
+##### Mode Imputation
+
+```{r}
+merged_dat[is.na(merged_dat$GarageType),]$GarageType = "Attchd"
+merged_dat[is.na(merged_dat$GarageQual),]$GarageQual = "TA"
+merged_dat[is.na(merged_dat$GarageCond),]$GarageCond = "TA"
+merged_dat[is.na(merged_dat$GarageFinish),]$GarageFinish = "Unf"
+```
+
+
 
 
 ```{r}
 prop_miss(merged_dat)
-```
-
-```{r}
-library(naniar)
-miss_var_summary(merged_dat)
-apply(merged_dat, 2, n_miss)
-apply(merged_dat, 2, prop_miss)
-```
-
-
-#### Fence
-
-```{r}
-merged_dat %>% 
-  ggplot(aes(Fence)) +
-  geom_bar(stat = "count")
-```
-
-Should I use this data set?......
-
-
-```{r}
-md.pairs(merged_dat)$mm
 ```
 
 
