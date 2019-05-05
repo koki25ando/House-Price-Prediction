@@ -68,6 +68,7 @@ prop_miss(merged_dat)
 
 ```{r}
 library(naniar)
+library(simputation)
 sort(apply(merged_dat, 2, n_miss), decreasing = T)
 ```
 
@@ -93,6 +94,8 @@ merged_dat %>%
 vars_int = c("BsmtFullBath", "BsmtHalfBath", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "GarageCars", "GarageArea")
 vars_factor = c("MSZoning", "Utilities", "Functional", "Exterior1st", "Exterior2nd", "Electrical", "KitchenQual", "SaleType")
 merged_dat = impute_mean_at(merged_dat, vars_int)
+merged_dat %>% 
+  impute_cart(MSZoning ~ .)
 ```
 
 # Check NAs
