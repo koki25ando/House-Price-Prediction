@@ -1,0 +1,190 @@
+---
+title: "house"
+author: "Koki Ando"
+date: "5/3/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+[House Price Prediction](https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data)
+
+```{r}
+library(tidyverse)
+test = read.csv("test.csv")
+train = read.csv("train.csv")
+```
+
+# EDA
+
+```{r}
+dim(train)
+```
+
+## Summary of train
+
+```{r}
+# summary(train)
+```
+
+## Sale Price
+
+```{r}
+train %>% 
+  ggplot(aes(SalePrice)) +
+  geom_histogram(bins = 50)
+```
+
+```{r}
+summary(train$SalePrice)
+```
+
+## Missing values
+
+```{r}
+apply(train, 2, prop_miss)
+```
+
+
+### Dealing with Missing values
+
+#### Combine datasets
+
+```{r}
+test$SalePrice = 0
+train$Train = "YES"
+test$Train = "NO"
+merged_dat = rbind(train, test)
+```
+
+#### Check NAs again
+
+```{r}
+prop_miss(merged_dat)
+```
+
+```{r}
+library(naniar)
+sort(apply(merged_dat, 2, n_miss), decreasing = T)
+```
+
+```{r}
+merged_dat %>% 
+  miss_var_summary() %>%
+  filter(n_miss >= 1 & n_miss < 5) %>% 
+  filter(variable %in% vars)
+```
+
+```{r}
+vars = c("MSZoning", "Utilities", "BsmtFullBath", "BsmtHalfBath", "Functional", "Exterior1st", "Exterior2nd", 
+         "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "Electrical", "KitchenQual", "GarageCars", "GarageArea", "SaleType")
+```
+
+```{r}
+merged_dat %>% 
+  select(vars) %>% 
+  str()
+```
+
+```{r}
+vars_int = c("BsmtFullBath", "BsmtHalfBath", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "GarageCars", "GarageArea")
+vars_factor = c("MSZoning", "Utilities", "Functional", "Exterior1st", "Exterior2nd", "Electrical", "KitchenQual", "SaleType")
+merged_dat = impute_mean_at(merged_dat, vars_int)
+```
+
+# Check NAs
+
+```{r}
+miss_var_summary(merged_dat) 
+```
+
+
+
+## Top 3 missing values
+
+```{r}
+prop_miss(merged_dat$PoolQC)
+prop_miss(merged_dat$MiscFeature)
+prop_miss(merged_dat$Alley)
+```
+
+It seems that vast majority of PoolQC, MiscFeature and Alley columns data is missing. In this case, I am not going to use these variables.
+
+```{r}
+merged_dat = select(merged_dat, -PoolQC, -MiscFeature, -Alley)
+```
+
+
+
+!!!!!後ほど試すこと
+これらの数値はそもそも、欠損値であるか無いかが重要かもしれない。そこを後ほど試す！
+
+
+```{r}
+prop_miss(merged_dat)
+```
+
+```{r}
+library(naniar)
+miss_var_summary(merged_dat)
+apply(merged_dat, 2, n_miss)
+apply(merged_dat, 2, prop_miss)
+```
+
+
+#### Fence
+
+```{r}
+merged_dat %>% 
+  ggplot(aes(Fence)) +
+  geom_bar(stat = "count")
+```
+
+Should I use this data set?......
+
+
+```{r}
+md.pairs(merged_dat)$mm
+```
+
+
+#### Imputation
+
+```{r}
+Mode = function(x){
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+```
+
+
+
+# Baseline prediction
+
+```{r}
+train = merged_dat %>% 
+  filter(Train == "YES") %>% 
+  select(-Train)
+test = merged_dat %>% 
+  filter(Train == "NO") %>% 
+  select(-Train, -SalePrice)
+```
+
+
+
+```{r}
+library(rpart)
+library(randomForest)
+model_rpart = rpart(data = train, SalePrice ~ .)
+# model_rf = randomForest(SalePrice ~ ., data = train,
+#                         ntree = 500, importance = TRUE)
+
+
+test$SalePrice = predict(model_rf, test)
+submission = select(test, Id, SalePrice)
+write.csv(submission, "submission.csv", row.names = FALSE)
+```
+
