@@ -17,7 +17,15 @@ merged_dat = rbind(train, test)
 vars_int = c("BsmtFullBath", "BsmtHalfBath", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "GarageCars", "GarageArea")
 vars_factor = c("MSZoning", "Utilities", "Functional", "Exterior1st", "Exterior2nd", "Electrical", "KitchenQual", "SaleType")
 merged_dat = impute_mean_at(merged_dat, vars_int)
-
+merged_dat = merged_dat %>% 
+  impute_cart(MSZoning ~ .) %>% 
+  impute_cart(Utilities ~ .) %>% 
+  impute_cart(Functional ~ .) %>% 
+  impute_cart(Exterior1st ~ .) %>% 
+  impute_cart(Exterior2nd ~ .) %>% 
+  impute_cart(Electrical ~ .) %>% 
+  impute_cart(KitchenQual ~ .) %>% 
+  impute_cart(SaleType ~ .)
 
 
 
@@ -39,6 +47,12 @@ model_rpart = rpart(data = train, SalePrice ~ .)
 # model_rf = randomForest(SalePrice ~ ., data = train,
 #                         ntree = 500, importance = TRUE)
 
+
+# Model Accuracy
+library(modelr)
+mae(model = model_rpart, data = train)
+mae(model = model_rf, data = train)
+mae(model = model_bag, data = train)
 
 test$SalePrice = predict(model_rf, test)
 submission = select(test, Id, SalePrice)

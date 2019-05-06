@@ -250,20 +250,103 @@ merged_dat[is.na(merged_dat$GarageFinish),]$GarageFinish = "Unf"
 
 
 
+### Basement
+
+```{r}
+select(merged_dat, contains("Bsmt"), SalePrice) %>% 
+  head()
+```
+
+
+
+```{r}
+merged_dat %>% 
+  ggplot(aes(BsmtQual)) +
+  geom_bar(stat = "count")
+```
+
+#### Mode Imputation
+
+```{r}
+merged_dat[is.na(merged_dat$BsmtFinType1),]$BsmtFinType1 = "GLQ"
+merged_dat[is.na(merged_dat$BsmtFinType2),]$BsmtFinType2 = "Unf"
+merged_dat[is.na(merged_dat$BsmtCond),]$BsmtCond = "TA"
+merged_dat[is.na(merged_dat$BsmtExposure),]$BsmtExposure = "No"
+merged_dat[is.na(merged_dat$BsmtQual),]$BsmtQual = "TA"
+```
+
+
+## FireplaceQu
+
+```{r}
+str(merged_dat$FireplaceQu)
+merged_dat %>% 
+  ggplot(aes(FireplaceQu)) +
+  geom_bar(stat = "count")
+```
+
+##### Mode imputation
+
+```{r}
+merged_dat[is.na(merged_dat$FireplaceQu),]$FireplaceQu = "Gd"
+```
+
+
+#### MasVnr
+
+```{r}
+merged_dat %>% 
+  select(SalePrice, contains("MasVnr")) %>% 
+  ggplot(aes(SalePrice, MasVnrArea)) +
+  geom_point() +
+  geom_miss_point() +
+  facet_wrap(~MasVnrType)
+```
+
+```{r}
+merged_dat %>% 
+  ggplot(aes(MasVnrType)) +
+  geom_bar(stat = "count")
+```
+
+
+```{r}
+merged_dat[is.na(merged_dat$MasVnrType), ]$MasVnrArea = 0
+merged_dat[is.na(merged_dat$MasVnrType), ]$MasVnrType = "None"
+```
+
+
+
 ```{r}
 prop_miss(merged_dat)
 ```
 
 
-#### Imputation
-
 ```{r}
-Mode = function(x){
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-}
+miss_var_summary(merged_dat)
 ```
 
+```{r}
+merged_dat %>% 
+  ggplot(aes(SalePrice, LotFrontage)) +
+  geom_point() +
+  geom_miss_point()
+  bind_shadow() %>% 
+  ggplot(aes(LotFrontage, colour = LotFrontage_NA)) +
+  geom_density()
+```
+
+```{r}
+merged_dat[is.na(merged_dat$LotFrontage), ]$LotFrontage = 0
+```
+
+```{r}
+names(merged_dat)
+```
+
+削除したカラムから特徴量を作成
+Conducting Cross Validation
+from caret tunelength
 
 
 # Baseline prediction
@@ -282,13 +365,33 @@ test = merged_dat %>%
 ```{r}
 library(rpart)
 library(randomForest)
-model_rpart = rpart(data = train, SalePrice ~ .)
-# model_rf = randomForest(SalePrice ~ ., data = train,
-#                         ntree = 500, importance = TRUE)
-
-
-test$SalePrice = predict(model_rf, test)
-submission = select(test, Id, SalePrice)
-write.csv(submission, "submission.csv", row.names = FALSE)
+library(ipred)
+library(caret)
+# model_rpart = rpart(data = train, SalePrice ~ .)
+model_rf = randomForest(SalePrice ~ ., data = train,
+                         ntree = 500, importance = TRUE)
+model_bag = bagging(SalePrice ~ ., data = train)
+model_glmnet = glmnet(SalePrice ~ ., data = train)
 ```
+
+## Model Accuracy 
+
+```{r}
+library(modelr)
+mae(model = model_rpart, data = train)
+mae(model = model_rf, data = train)
+mae(model = model_bag, data = train)
+```
+
+
+
+# Model Submission
+
+```{r}
+test$SalePrice = predict(model_rpart, test)
+test$SalePrice = predict(model_rf, test)
+# submission = select(test, Id, SalePrice)
+# write.csv(submission, "submission.csv", row.names = FALSE)
+```
+
 
