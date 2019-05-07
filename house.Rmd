@@ -12,10 +12,19 @@ knitr::opts_chunk$set(echo = TRUE)
 
 [House Price Prediction](https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data)
 
+# Preparation
+
 ```{r}
 library(tidyverse)
+library(naniar)
 test = read.csv("test.csv")
 train = read.csv("train.csv")
+
+# Combining datasets
+test$SalePrice = 0
+train$Train = "YES"
+test$Train = "NO"
+merged_dat = rbind(train, test)
 ```
 
 # EDA
@@ -24,67 +33,33 @@ train = read.csv("train.csv")
 dim(train)
 ```
 
-## Summary of train
-
-```{r}
-# summary(train)
-```
-
-## Sale Price
+## SalePrice Distribution
 
 ```{r}
 train %>% 
   ggplot(aes(SalePrice)) +
   geom_histogram(bins = 50)
-```
-
-```{r}
 summary(train$SalePrice)
 ```
 
-## Missing values
+# Dealing with Missing values
 
-```{r}
-apply(train, 2, prop_miss)
-```
-
-
-### Dealing with Missing values
-
-#### Combine datasets
-
-```{r}
-test$SalePrice = 0
-train$Train = "YES"
-test$Train = "NO"
-merged_dat = rbind(train, test)
-```
-
-#### Check NAs again
+## Check NAs
 
 ```{r}
 prop_miss(merged_dat)
 ```
 
-```{r}
-library(naniar)
-library(simputation)
-sort(apply(merged_dat, 2, n_miss), decreasing = T)
-```
+Original proportion of missing values: 0.05834357
 
 ```{r}
 merged_dat %>% 
-  miss_var_summary() %>%
-  filter(n_miss >= 1 & n_miss < 5) %>% 
-  filter(variable %in% vars)
+  miss_var_summary()
 ```
 
 ```{r}
 vars = c("MSZoning", "Utilities", "BsmtFullBath", "BsmtHalfBath", "Functional", "Exterior1st", "Exterior2nd", 
          "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "Electrical", "KitchenQual", "GarageCars", "GarageArea", "SaleType")
-```
-
-```{r}
 merged_dat %>% 
   select(vars) %>% 
   str()
@@ -93,7 +68,17 @@ merged_dat %>%
 ```{r}
 vars_int = c("BsmtFullBath", "BsmtHalfBath", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "GarageCars", "GarageArea")
 vars_factor = c("MSZoning", "Utilities", "Functional", "Exterior1st", "Exterior2nd", "Electrical", "KitchenQual", "SaleType")
+```
+
+### Mean Imputation
+
+```{r}
 merged_dat = impute_mean_at(merged_dat, vars_int)
+```
+
+### Linear model Imputation
+
+```{r}
 merged_dat = merged_dat %>% 
   impute_cart(MSZoning ~ .) %>% 
   impute_cart(Utilities ~ .) %>% 
@@ -105,103 +90,71 @@ merged_dat = merged_dat %>%
   impute_cart(SaleType ~ .)
 ```
 
-# Check NAs
+
+## Check NAs again
 
 ```{r}
-miss_var_summary(merged_dat)
+prop_miss(merged_dat)
 ```
 
-
-
-## Top 7 missing values
+Second check: 0.05824748
 
 ```{r}
-miss_var_summary(merged_dat)
-```
-
-```{r}
-top_missing_vats = c("PoolQC", "MiscFeature", "Alley", "Fence", "FireplaceQu", "LotFrontage", "GarageYrBlt")
+top_missing_vars = c("PoolQC", "MiscFeature", "Alley", "Fence", "FireplaceQu", "LotFrontage", "GarageYrBlt")
 merged_dat %>% 
-  select(top_missing_vats, SalePrice) %>% 
+  select(top_missing_vars, SalePrice) %>% 
   str()
 ```
-
-
-## Deeper EDA
 
 ### PoolQC
 
 ```{r}
-merged_dat %>% 
-  ggplot(aes(SalePrice, PoolQC)) +
-  geom_boxplot()
+merged_dat$PoolQC = as.character(merged_dat$PoolQC)
+merged_dat[is.na(merged_dat$PoolQC),]$PoolQC = "Hi"
+merged_dat$PoolQC = factor(merged_dat$PoolQC)
 ```
 
+### MiscFeature
+
 ```{r}
-merged_dat %>% 
-  bind_shadow() %>% 
-  ggplot(aes(SalePrice, colour = PoolQC_NA)) +
-  geom_density()
+merged_dat$MiscFeature = as.character(merged_dat$MiscFeature)
+merged_dat[is.na(merged_dat$MiscFeature),]$MiscFeature = "High"
+merged_dat$MiscFeature = factor(merged_dat$MiscFeature)
+```
+
+### Alley
+
+```{r}
+merged_dat$Alley = as.character(merged_dat$Alley)
+merged_dat[is.na(merged_dat$Alley),]$Alley = "HighSP"
+merged_dat$Alley = factor(merged_dat$Alley)
+```
+
+### Fence
+
+```{r}
+merged_dat$Fence = as.character(merged_dat$Fence)
+merged_dat[is.na(merged_dat$Fence),]$Fence = "Hig"
+merged_dat$Fence = factor(merged_dat$Fence)
+```
+
+### FireplaceQu
+
+```{r}
+merged_dat$FireplaceQu = as.character(merged_dat$FireplaceQu)
+merged_dat[is.na(merged_dat$FireplaceQu),]$FireplaceQu = "Hg"
+merged_dat$FireplaceQu = factor(merged_dat$FireplaceQu)
 ```
 
 
-
 ```{r}
-nums <- unlist(lapply(merged_dat, is.numeric))  
-res <- cor(merged_dat[, nums])
-round(res, 2) %>% tail(1)
-```
-
-```{r}
-merged_dat %>% 
-  bind_shadow() %>% 
-  ggplot(aes(TotalBsmtSF, SalePrice, colour = Alley_NA)) +
-  geom_point(alpha = .4)
-```
-
-
-
-
-```{r}
-merged_dat = select(merged_dat, -PoolQC, -MiscFeature, -Alley, -Fence)
-merged_dat = select(merged_dat, -Fence)
-```
-
-
-```{r}
-prop_miss(merge_dat)
+prop_miss(merged_dat)
 miss_var_summary(select(merged_dat, contains("Garage")))
 ```
 
+### Garage
 
-## Garage
-
-```{r}
-merged_dat %>% 
-  select(contains("Garage"), SalePrice) %>% 
-  str()
-```
-
-
-```{r}
-merged_dat %>% 
-  select(contains("Garage"), SalePrice) %>% 
-  # bind_shadow() %>% 
-  add_label_missings() %>% 
-  ggplot(aes(GarageYrBlt, SalePrice), alpha = .4) +
-  geom_point() +
-  geom_miss_point()
-```
-
-
-```{r}
-merged_dat %>% 
-  ggplot(aes(GarageYrBlt, SalePrice)) +
-  geom_point() +
-  geom_miss_point()
-```
-
-### Linear Model imputation
+#### Linear Model imputation
 
 ```{r}
 merged_dat = impute_lm(merged_dat, GarageYrBlt ~ SalePrice)
@@ -214,29 +167,7 @@ round(res, 2)[26:27,]
 ```
 
 
-```{r}
-merged_dat %>% 
-  select(contains("Garage"), SalePrice) %>% 
-  ggplot(aes(GarageYrBlt, SalePrice)) +
-  geom_point() +
-  geom_miss_point()
-```
-
-
-### Garage Type/Qual/Cond/Finish
-
-```{r}
-merged_dat %>% 
-  ggplot(aes(GarageFinish)) +
-  geom_bar(stat = "count")
-# merged_dat %>% 
-#   ggplot(aes(GarageQual, SalePrice, colour = GarageQual)) +
-#   geom_boxplot()
-# 
-# merged_dat %>% 
-#   ggplot(aes(SalePrice, colour = GarageQual)) +
-#   geom_density()
-```
+#### Garage Type/Qual/Cond/Finish
 
 ##### Mode Imputation
 
@@ -247,23 +178,7 @@ merged_dat[is.na(merged_dat$GarageCond),]$GarageCond = "TA"
 merged_dat[is.na(merged_dat$GarageFinish),]$GarageFinish = "Unf"
 ```
 
-
-
-
 ### Basement
-
-```{r}
-select(merged_dat, contains("Bsmt"), SalePrice) %>% 
-  head()
-```
-
-
-
-```{r}
-merged_dat %>% 
-  ggplot(aes(BsmtQual)) +
-  geom_bar(stat = "count")
-```
 
 #### Mode Imputation
 
@@ -275,78 +190,24 @@ merged_dat[is.na(merged_dat$BsmtExposure),]$BsmtExposure = "No"
 merged_dat[is.na(merged_dat$BsmtQual),]$BsmtQual = "TA"
 ```
 
-
-## FireplaceQu
-
-```{r}
-str(merged_dat$FireplaceQu)
-merged_dat %>% 
-  ggplot(aes(FireplaceQu)) +
-  geom_bar(stat = "count")
-```
-
-##### Mode imputation
-
-```{r}
-merged_dat[is.na(merged_dat$FireplaceQu),]$FireplaceQu = "Gd"
-```
-
-
 #### MasVnr
 
 ```{r}
-merged_dat %>% 
-  select(SalePrice, contains("MasVnr")) %>% 
-  ggplot(aes(SalePrice, MasVnrArea)) +
-  geom_point() +
-  geom_miss_point() +
-  facet_wrap(~MasVnrType)
-```
-
-```{r}
-merged_dat %>% 
-  ggplot(aes(MasVnrType)) +
-  geom_bar(stat = "count")
-```
-
-
-```{r}
-merged_dat[is.na(merged_dat$MasVnrType), ]$MasVnrArea = 0
 merged_dat[is.na(merged_dat$MasVnrType), ]$MasVnrType = "None"
+merged_dat[is.na(merged_dat$MasVnrArea), ]$MasVnrArea = 0
 ```
 
-
-
-```{r}
-prop_miss(merged_dat)
-```
-
-
-```{r}
-miss_var_summary(merged_dat)
-```
-
-```{r}
-merged_dat %>% 
-  ggplot(aes(SalePrice, LotFrontage)) +
-  geom_point() +
-  geom_miss_point()
-  bind_shadow() %>% 
-  ggplot(aes(LotFrontage, colour = LotFrontage_NA)) +
-  geom_density()
-```
+#### LotFrontage
 
 ```{r}
 merged_dat[is.na(merged_dat$LotFrontage), ]$LotFrontage = 0
 ```
 
 ```{r}
-names(merged_dat)
+prop_miss(merged_dat)
 ```
 
-削除したカラムから特徴量を作成
-Conducting Cross Validation
-from caret tunelength
+Final check: 0
 
 # caret::dummyVars -Feature Engineering-
 
@@ -366,7 +227,7 @@ train_treat = merged_dat_dummy2 %>%
 test_treat = merged_dat_dummy2 %>% 
   filter(TrainYES == 0) %>% 
   select(-contains("Train"), -SalePrice)
-train = select(train, -pred_xgb)
+# train = select(train, -pred_xgb)
 ```
 
 ## Finding the optimal number of trees
@@ -395,7 +256,7 @@ elog %>%
 ```{r}
 model_xgb <- xgboost(data = as.matrix(train_treat), 
                      label = train$SalePrice,
-                     nrounds = 25,
+                     nrounds = 42,
                       objective = "reg:linear",
                       eta = .3,
                       depth = 6,
@@ -424,6 +285,8 @@ train_acc_test %>%
   summarise(sqrt(mean(xgb_residuals^2)))
 ```
 
+1: 7715.745
+2: 5383.883
 
 # Baseline prediction
 
@@ -439,8 +302,6 @@ test = merged_dat %>%
 
 
 ```{r}
-library(randomForest)
-library(gbm)
 model_rf = randomForest(SalePrice ~ ., data = train,
                          ntree = 500, importance = TRUE)
 model_rpart = rpart(SalePrice ~ ., data = train)
@@ -456,14 +317,6 @@ model_rf_ranger = ranger(SalePrice ~ ., data = train,
 
 
 ## Model Accuracy 
-
-```{r}
-library(modelr)
-mae(model = model_rf, data = train)
-```
-
-5/6: 6598.363
-
 
 ```{r}
 accuracy_check_model = train
@@ -484,6 +337,12 @@ accuracy_check_model %>%
     rpart_rmse = sqrt(mean(rpart_residuals^2))
     )
 ```
+
+rmse
+rf:       11268.29
+ranger:   12330.57
+rpart:    38464.11
+xgboost:   5383.883
 
 
 

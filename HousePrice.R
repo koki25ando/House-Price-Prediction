@@ -13,7 +13,13 @@ train$Train = "YES"
 test$Train = "NO"
 merged_dat = rbind(train, test)
 
-# imputing missing values
+
+
+
+### ------------------------ Missing Values imputation ----------------------------------------------
+
+
+
 vars_int = c("BsmtFullBath", "BsmtHalfBath", "BsmtFinSF1", "BsmtFinSF2", "BsmtUnfSF", "TotalBsmtSF", "GarageCars", "GarageArea")
 vars_factor = c("MSZoning", "Utilities", "Functional", "Exterior1st", "Exterior2nd", "Electrical", "KitchenQual", "SaleType")
 merged_dat = impute_mean_at(merged_dat, vars_int)
@@ -28,6 +34,43 @@ merged_dat = merged_dat %>%
   impute_cart(SaleType ~ .)
 
 
+merged_dat$PoolQC = as.character(merged_dat$PoolQC)
+merged_dat[is.na(merged_dat$PoolQC),]$PoolQC = "Hi"
+merged_dat$PoolQC = factor(merged_dat$PoolQC)
+
+merged_dat$MiscFeature = as.character(merged_dat$MiscFeature)
+merged_dat[is.na(merged_dat$MiscFeature),]$MiscFeature = "High"
+merged_dat$MiscFeature = factor(merged_dat$MiscFeature)
+
+merged_dat$Alley = as.character(merged_dat$Alley)
+merged_dat[is.na(merged_dat$Alley),]$Alley = "HighSP"
+merged_dat$Alley = factor(merged_dat$Alley)
+
+merged_dat$Fence = as.character(merged_dat$Fence)
+merged_dat[is.na(merged_dat$Fence),]$Fence = "Hig"
+merged_dat$Fence = factor(merged_dat$Fence)
+
+merged_dat$FireplaceQu = as.character(merged_dat$FireplaceQu)
+merged_dat[is.na(merged_dat$FireplaceQu),]$FireplaceQu = "Hg"
+merged_dat$FireplaceQu = factor(merged_dat$FireplaceQu)
+
+merged_dat = impute_lm(merged_dat, GarageYrBlt ~ SalePrice)
+
+merged_dat[is.na(merged_dat$GarageType),]$GarageType = "Attchd"
+merged_dat[is.na(merged_dat$GarageQual),]$GarageQual = "TA"
+merged_dat[is.na(merged_dat$GarageCond),]$GarageCond = "TA"
+merged_dat[is.na(merged_dat$GarageFinish),]$GarageFinish = "Unf"
+
+merged_dat[is.na(merged_dat$BsmtFinType1),]$BsmtFinType1 = "GLQ"
+merged_dat[is.na(merged_dat$BsmtFinType2),]$BsmtFinType2 = "Unf"
+merged_dat[is.na(merged_dat$BsmtCond),]$BsmtCond = "TA"
+merged_dat[is.na(merged_dat$BsmtExposure),]$BsmtExposure = "No"
+merged_dat[is.na(merged_dat$BsmtQual),]$BsmtQual = "TA"
+
+merged_dat[is.na(merged_dat$MasVnrType), ]$MasVnrType = "None"
+merged_dat[is.na(merged_dat$MasVnrArea), ]$MasVnrArea = 0
+
+merged_dat[is.na(merged_dat$LotFrontage), ]$LotFrontage = 0
 
 
 ## -------------- xgboost start ------------------------------
