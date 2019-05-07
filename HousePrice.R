@@ -30,7 +30,69 @@ merged_dat = merged_dat %>%
 
 
 
+## -------------- xgboost start ------------------------------
 
+library(caret)
+merged_dat_dummy = dummyVars(~., data = merged_dat)
+merged_dat_dummy2 = as.data.frame(predict(merged_dat_dummy, merged_dat))
+
+train_treat = merged_dat_dummy2 %>% 
+  filter(TrainYES == 1) %>% 
+  select(-contains("Train"))
+test_treat = merged_dat_dummy2 %>% 
+  filter(TrainYES == 1) %>% 
+  select(-contains("Train"))
+library(xgboost)
+cv <- xgb.cv(data = as.matrix(train_treat), 
+             label = train$SalePrice,
+             nrounds = 100,
+             nfold = 5,
+             objective = "reg:linear",
+             eta = .3,
+             max_depth = 6,
+             early_stopping_rounds = 10,
+             verbose = 0
+)
+elog <- as.data.frame(cv$evaluation_log)
+
+elog %>% 
+  summarize(ntrees.train = which.min(train_rmse_mean),
+            ntrees.test  = which.min(test_rmse_mean))
+
+
+
+model_xgb <- xgboost(data = as.matrix(train_treat), 
+                     label = train$SalePrice,
+                     nrounds = 25,
+                     objective = "reg:linear",
+                     eta = .3,
+                     depth = 6,
+                     verbose = 0
+)
+
+
+# Check accuracy
+
+train_treat$pred_xgb = predict(model_xgb, as.matrix(train_treat))
+train_treat %>% 
+  mutate(xgb_residuals = pred_xgb - SalePrice) %>% 
+  summarise(xgb_rmse = sqrt(mean(xgb_residuals^2)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## -------------- xgboost end --------------------------------
 
 
 
@@ -55,5 +117,5 @@ mae(model = model_rf, data = train)
 mae(model = model_bag, data = train)
 
 test$SalePrice = predict(model_rf, test)
-submission = select(test, Id, SalePrice)
-write.csv(submission, "submission.csv", row.names = FALSE)
+# submission = select(test, Id, SalePrice)
+# write.csv(submission, "submission.csv", row.names = FALSE)

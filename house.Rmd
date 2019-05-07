@@ -357,27 +357,36 @@ library(caret)
 merged_dat_dummy = dummyVars(~., data = merged_dat)
 merged_dat_dummy2 = as.data.frame(predict(merged_dat_dummy, merged_dat))
 head(merged_dat_dummy2)
-train_treat = filter(merged_dat_dummy2, TrainYES == 1)
-test_treat = filter(merged_dat_dummy2, TrainNO == 1)
+# train_treat = filter(merged_dat_dummy2, TrainYES == 1)
+# test_treat = filter(merged_dat_dummy2, TrainNO == 1)
+
+train_treat = merged_dat_dummy2 %>% 
+  filter(TrainYES == 1) %>% 
+  select(-contains("Train"), -SalePrice)
+test_treat = merged_dat_dummy2 %>% 
+  filter(TrainYES == 0) %>% 
+  select(-contains("Train"), -SalePrice)
+train = select(train, -pred_xgb)
 ```
 
 ## Finding the optimal number of trees
 
 ```{r}
+library(xgboost)
 cv <- xgb.cv(data = as.matrix(train_treat), 
-            label = train_treat$SalePrice,
+            label = train$SalePrice,
             nrounds = 100,
             nfold = 5,
             objective = "reg:linear",
             eta = .3,
             max_depth = 6,
             early_stopping_rounds = 10,
-            verbose = 0    # silent
+            verbose = 0
 )
 elog <- as.data.frame(cv$evaluation_log)
 
 elog %>% 
-   summarize(ntrees.train = which.min(train_rmse_mean),   # find the index of min(train_rmse_mean)
+   summarize(ntrees.train = which.min(train_rmse_mean),
              ntrees.test  = which.min(test_rmse_mean))
 
 ```
@@ -385,31 +394,35 @@ elog %>%
 
 ```{r}
 model_xgb <- xgboost(data = as.matrix(train_treat), 
-                     label = train_treat$SalePrice,  # column of outcomes
-                   nrounds = 70,       # number of trees to build
-                   objective = "reg:linear", # objective
-                   eta = .3,
-                   depth = 6,
-                   verbose = 0  # silent
+                     label = train$SalePrice,
+                     nrounds = 25,
+                      objective = "reg:linear",
+                      eta = .3,
+                      depth = 6,
+                      verbose = 0
 )
 
-train_treat$pred_xgb = predict(model_xgb, as.matrix(train_treat))
-train_treat %>% 
-  mutate(xgb_residuals = pred_xgb - SalePrice) %>% 
-  summarise(xgb_rmse = sqrt(mean(xgb_residuals^2)))
+# train$pred_xgb = predict(model_xgb, as.matrix(train_treat))
+# train %>% 
+#   mutate(xgb_residuals = pred_xgb - SalePrice) %>% 
+#   summarise(xgb_rmse = sqrt(mean(xgb_residuals^2)))
 ```
 
 ```{r}
-xgb_test = select(test_treat, -SalePrice)
-xgb_test$SalePrice = predict(model_xgb, as.matrix(xgb_test))
+test = select(test, -SalePrice)
+test$SalePrice = predict(model_xgb, as.matrix(test_treat))
+# select(test, Id, SalePrice)
 ```
 
-
+# Model Accuracy check
 
 ```{r}
-head(train_treat)
+train_acc_test = train
+train_acc_test$xgb_pred = predict(model_xgb, as.matrix(train_treat))
+train_acc_test %>% 
+  mutate(xgb_residuals = xgb_pred - SalePrice) %>% 
+  summarise(sqrt(mean(xgb_residuals^2)))
 ```
-
 
 
 # Baseline prediction
